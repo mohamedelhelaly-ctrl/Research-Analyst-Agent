@@ -1,0 +1,3 @@
+# Phase 6: Docker Compose wiring for mcp_server + api + chromadb.
+# Left unimplemented until the MCP transport (stdio vs SSE) and service
+# boundaries are finalized in later phases (see spec section 8).
