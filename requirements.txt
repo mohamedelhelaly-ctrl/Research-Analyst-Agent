@@ -1,0 +1,9 @@
+mcp==1.28.1
+python-dotenv==1.2.2
+tavily-python==0.7.26
+chromadb==1.5.9
+sentence-transformers==5.6.0
+chromadb==1.5.9
+sentence-transformers==5.6.0
+langchain-text-splitters==1.1.2
+tiktoken==0.13.0
