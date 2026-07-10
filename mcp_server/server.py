@@ -1,7 +1,7 @@
 """MCP server exposing tools for the Research Analyst Agent.
 
-Phase 1: only `web_search` is implemented. `read_document` and
-`query_vector_db` are added in Phase 2.
+Exposes `web_search` (Phase 1), plus `query_vector_db` and `read_document`
+(Phase 2).
 
 Runs over stdio transport (recommended for local dev per the project spec).
 """
@@ -17,6 +17,10 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 # Web search implementation and error type imported from tools.
+from tools.query_vector_db import VectorDBError
+from tools.query_vector_db import query_vector_db as run_query_vector_db
+from tools.read_document import DocumentNotFoundError
+from tools.read_document import read_document as run_read_document
 from tools.web_search import WebSearchError
 from tools.web_search import web_search as run_web_search
 
@@ -78,6 +82,66 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
     log_tool_call("web_search", tool_input, results)
     # Return the search results to the MCP client.
     return results
+
+
+# Register query_vector_db as an MCP tool callable by clients.
+@mcp.tool()
+def query_vector_db(query: str, top_k: int = 5) -> list[dict]:
+    """Run semantic search over the local job-market document corpus.
+
+    Use this to find relevant passages from ingested documents (job
+    postings, market-trend summaries, salary benchmarks) that are
+    semantically related to the query, even if they don't share exact
+    keywords.
+
+    Args:
+        query: the search query (e.g. "AI engineer salary range")
+        top_k: maximum number of chunks to return (default 5)
+    """
+    # Collect the input values so they can be logged later.
+    tool_input = {"query": query, "top_k": top_k}
+
+    try:
+        # Execute the actual vector search implementation.
+        results = run_query_vector_db(query, top_k)
+    except VectorDBError as exc:
+        # If the search fails, return an error structure and log the failure.
+        results = {"error": str(exc)}
+        logger.error("query_vector_db failed: %s", exc)
+
+    # Log every tool call for observability and debugging.
+    log_tool_call("query_vector_db", tool_input, results)
+    # Return the search results to the MCP client.
+    return results
+
+
+# Register read_document as an MCP tool callable by clients.
+@mcp.tool()
+def read_document(doc_id: str) -> str:
+    """Read the full text of a specific document from the local corpus.
+
+    Use this after query_vector_db or web_search surfaces a promising
+    doc_id and you need the full document rather than just a chunk.
+
+    Args:
+        doc_id: the document identifier (filename without extension),
+            e.g. "job-posting-ai-engineer-novagrid"
+    """
+    # Collect the input values so they can be logged later.
+    tool_input = {"doc_id": doc_id}
+
+    try:
+        # Execute the actual document read implementation.
+        result = run_read_document(doc_id)
+    except DocumentNotFoundError as exc:
+        # If the document isn't found, return an error string and log the failure.
+        result = f"error: {exc}"
+        logger.error("read_document failed: %s", exc)
+
+    # Log every tool call for observability and debugging.
+    log_tool_call("read_document", tool_input, result)
+    # Return the document text to the MCP client.
+    return result
 
 
 if __name__ == "__main__":
